@@ -68,22 +68,20 @@ print("--- Raw Sample Post ---")
 print(sample_post)
 print("-" * 40)
 
-# TODO 1.1: Tokenize sample_post, lowercase, and keep alphabetic tokens
+# TODO 1.1: Tokenize `sample_post` using `word_tokenize`, convert to lowercase,
+# and keep only alphabetic tokens (`w.isalpha()`).
 tokens = [w.lower() for w in word_tokenize(sample_post) if w.isalpha()]
 
-# TODO 1.2: Remove standard English stopwords
+# TODO 1.2: Remove standard English stopwords using `stopwords.words('english')`.
 stop_words = set(stopwords.words("english"))
 filtered_tokens = [w for w in tokens if w not in stop_words]
 
-# TODO 1.3: Apply PorterStemmer and WordNetLemmatizer (with pos='v')
+# TODO 1.3: Apply PorterStemmer and WordNetLemmatizer (with pos='v') to `filtered_tokens`.
 stemmer = PorterStemmer()
 lemmatizer = WordNetLemmatizer()
 
 stemmed_tokens = [stemmer.stem(w) for w in filtered_tokens]
 lemmatized_tokens = [lemmatizer.lemmatize(w, pos="v") for w in filtered_tokens]
-
-stemmed_tokens = None  # Replace None
-lemmatized_tokens = None  # Replace None
 
 if filtered_tokens is not None:
     print("Filtered Tokens:  ", filtered_tokens[:12])
@@ -95,11 +93,12 @@ if filtered_tokens is not None:
 # ## Step 2: Bag of Words vs. TF-IDF Feature Extraction (15 mins)
 
 # %%
-# TODO 2.1: Initialize CountVectorizer and TfidfVectorizer
+# TODO 2.1: Initialize CountVectorizer and TfidfVectorizer with:
+# stop_words='english', max_features=4000, min_df=5
 bow_vec = CountVectorizer(stop_words="english", max_features=4000, min_df=5)
 tfidf_vec = TfidfVectorizer(stop_words="english", max_features=4000, min_df=5)
 
-# TODO 2.2: Fit and transform df['text'] to create X_bow and X_tfidf
+# TODO 2.2: Fit and transform `df['text']` to create `X_bow` and `X_tfidf`
 X_bow = bow_vec.fit_transform(df["text"])
 X_tfidf = tfidf_vec.fit_transform(df["text"])
 
@@ -129,11 +128,12 @@ if X_tfidf is not None:
 
 # %%
 if X_tfidf is not None:
-    # TODO 3.1: Fit KMeans with n_clusters=4, random_state=42, n_init=10 on X_tfidf
+    # TODO 3.1: Fit KMeans with `n_clusters=4, random_state=42, n_init=10` on `X_tfidf`
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     df["cluster"] = kmeans.fit_predict(X_tfidf)
 
-    # TODO 3.2: Print top defining words per cluster centroid and plot heatmap
+    # TODO 3.2: Print the top 8 defining TF-IDF words per cluster centroid
+    # and plot a seaborn heatmap (`cluster_heatmap.png`) of the top 5 words per cluster.
     print("\n--- Top Defining Words per Cluster ---")
     order_centroids = kmeans.cluster_centers_.argsort()[:, ::-1]
     terms = tfidf_vec.get_feature_names_out()
@@ -151,7 +151,8 @@ if X_tfidf is not None:
     plt.savefig("cluster_heatmap.png", dpi=150)
     plt.show()
 
-    # TODO 3.3: Project X_tfidf to 2 dimensions using TruncatedSVD and plot spatial mapping
+    # TODO 3.3: Project `X_tfidf` to 2 dimensions using `TruncatedSVD(n_components=2, random_state=42)`
+    # and save a 2D scatter plot (`spatial_mapping.png`) colored by `df["cluster"]`.
     svd = TruncatedSVD(n_components=2, random_state=42)
     coords = svd.fit_transform(X_tfidf)
     
@@ -164,8 +165,14 @@ if X_tfidf is not None:
     plt.savefig("spatial_mapping.png", dpi=150)
     plt.show()
 
+
 # %% [markdown]
+# ## Step 4: Problem-Solving Diagnostics (20 mins)
+
+# %%
 # Challenge 1 (Noise Filtering):
+# TODO 4.1: Build a cleaner `TfidfVectorizer` using `token_pattern=r'\b[a-zA-Z]{3,}\b'`,
+# `max_df=0.5`, and custom conversational stopwords (e.g., 'know', 'like', 'just', 'think', 'does', 'use', 'thanks').
 custom_stopwords = stopwords.words("english") + ['know', 'like', 'think', 'just', 'does', 'use', 'thanks']
 clean_tfidf_vec = TfidfVectorizer(
     token_pattern=r'\b[a-zA-Z]{3,}\b',
@@ -179,19 +186,24 @@ clean_kmeans = KMeans(n_clusters=4, random_state=42, n_init=10).fit(X_clean_tfid
 
 
 # Challenge 2 (Hardware Overlap Diagnosis):
+# TODO 4.2: Run `pd.crosstab(df['true_label'], df['cluster'])` and inspect overlapping categories.
 print("\n--- Crosstab: True Labels vs Clusters ---")
 print(pd.crosstab(df['true_label'], df['cluster']))
 
 
 # Challenge 3 (Rant Length Bias):
+# TODO 4.3: Compare L2 vector norms (`np.linalg.norm`) of the longest and shortest posts in `X_bow` vs `X_tfidf`.
 bow_norms = np.array([np.linalg.norm(row.toarray()) for row in X_bow])
 tfidf_norms = np.array([np.linalg.norm(row.toarray()) for row in X_tfidf])
+print(f"\nBoW Norms - Max: {bow_norms.max():.2f}, Min: {bow_norms.min():.2f}")
+print(f"TF-IDF Norms - Max: {tfidf_norms.max():.2f}, Min: {tfidf_norms.min():.2f}")
 
 
 # Challenge 4 (Stakeholder Explainability Audit):
 def explain_document(doc_id, matrix, vectorizer, top_n=5):
     """
-    Returns the top_n highest-weighted TF-IDF terms and weights for a single document.
+    TODO 4.4: Return or print the top_n highest-weighted TF-IDF terms and their exact weights
+    for a single document `doc_id` (test with doc_id=412).
     """
     row = matrix.getrow(doc_id).toarray().ravel()
     top_indices = row.argsort()[-top_n:][::-1]
